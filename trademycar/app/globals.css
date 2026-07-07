@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+@theme {
+  /* Brand tokens — see design handoff README "Design Tokens" */
+  --color-accent: #1a5be8;
+  --color-ink: #0f1720;
+  --color-ink-2: #0f2233;
+  --color-ink-3: #12283d;
+  --color-body: #4b5563;
+  --color-body-2: #5a6b7a;
+  --color-muted: #8593a0;
+  --color-muted-2: #6a7787;
+  --color-guarantee: #ffd64a;
+  --color-money: #16a34a;
+  --color-star: #f5a623;
+  --color-success: #1c7a54;
+  --color-success-bg: #e5f3ec;
+  --color-error: #c23a33;
+  --color-alt: #f6f8fa;
+  --color-line: #e4e8ec;
+  --color-hairline: #eceff3;
+  --color-input: #d9dee3;
+
+  --font-display: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-body: "Hanken Grotesk", system-ui, sans-serif;
+
+  --animate-rise: rise 0.3s ease both;
+  --animate-blip: blip 1s infinite;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes blip {
+    0%,
+    100% {
+      opacity: 0.25;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  color: #1b2b3a;
+  background: #fff;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  font-size: 16px;
+}
+
+button {
+  font-family: inherit;
+}
+
+input {
+  font-family: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
