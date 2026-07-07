@@ -8,17 +8,25 @@ import {
 } from "@/lib/db";
 
 /**
- * Team login system.
+ * Team login system — one simple email + password form for everyone.
  *
- * - The OWNER logs in with just the owner password (ADMIN_PASSWORD env var,
- *   set once in your hosting settings). The owner can add/remove team
- *   members from the dashboard.
+ * - The OWNER logs in with OWNER_EMAIL and the owner password. The owner
+ *   password is DEFAULT_OWNER_PASSWORD out of the box; setting an
+ *   ADMIN_PASSWORD environment variable overrides it (recommended once
+ *   live, since the default is written in the source code).
  * - TEAM MEMBERS log in with their own email + password, created by the
- *   owner inside the dashboard — no technical setup involved.
+ *   owner in the dashboard's Team section — no technical setup involved.
  *
  * Sessions are random tokens stored in the database (30 days), held in an
  * httpOnly cookie. Removing a team member kills their sessions instantly.
  */
+
+export const OWNER_EMAIL = "admin@trademycar.co.nz";
+const DEFAULT_OWNER_PASSWORD = "matt@27";
+
+function ownerPassword(): string {
+  return process.env.ADMIN_PASSWORD || DEFAULT_OWNER_PASSWORD;
+}
 
 export const ADMIN_COOKIE = "tmc_admin";
 export const SESSION_DAYS = 30;
@@ -46,19 +54,19 @@ export function verifyPassword(password: string, stored: string): boolean {
   );
 }
 
-/** Owner login (password only) or team login (email + password). */
+/** One form for everyone: owner email or a team member's email. */
 export function attemptLogin(
   email: string,
   password: string,
 ): AdminSession | null {
-  const ownerPassword = process.env.ADMIN_PASSWORD;
+  const normalised = email.toLowerCase().trim();
 
-  if (!email) {
-    if (!ownerPassword || password !== ownerPassword) return null;
-    return createSession("Owner", null, true);
+  if (normalised === OWNER_EMAIL) {
+    if (password !== ownerPassword()) return null;
+    return createSession("Owner", OWNER_EMAIL, true);
   }
 
-  const user = findUserByEmail(email.toLowerCase().trim());
+  const user = findUserByEmail(normalised);
   if (!user || !verifyPassword(password, user.passHash)) return null;
   return createSession(user.name, user.email, false);
 }
@@ -81,10 +89,6 @@ function createSession(
 
 /** Read + validate the session from the request cookies (server-side). */
 export async function getAdminSession(): Promise<AdminSession | null> {
-  // Development convenience: dashboard is open if no owner password is set.
-  if (!process.env.ADMIN_PASSWORD && process.env.NODE_ENV === "development") {
-    return { token: "dev", name: "Dev", email: null, isOwner: true };
-  }
   const jar = await cookies();
   const token = jar.get(ADMIN_COOKIE)?.value;
   if (!token) return null;

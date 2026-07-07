@@ -2,18 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { ADMIN_COOKIE, SESSION_DAYS, attemptLogin } from "@/lib/auth";
 
 /**
- * POST /api/admin/login  { email?, password }
- * Owner: leave email blank, use the owner password (ADMIN_PASSWORD).
- * Team member: email + the password the owner created for them.
+ * POST /api/admin/login  { email, password }
+ * One form for everyone — the owner and team members alike.
  */
 export async function POST(req: NextRequest) {
-  if (!process.env.ADMIN_PASSWORD) {
-    return NextResponse.json(
-      { error: "The owner password (ADMIN_PASSWORD) isn't set up on the server yet." },
-      { status: 503 },
-    );
-  }
-
   let email = "";
   let password = "";
   try {
@@ -28,7 +20,7 @@ export async function POST(req: NextRequest) {
   if (!session) {
     await new Promise((r) => setTimeout(r, 800)); // blunt brute-force guessing
     return NextResponse.json(
-      { error: email ? "Wrong email or password." : "Wrong owner password." },
+      { error: "Wrong email or password." },
       { status: 401 },
     );
   }

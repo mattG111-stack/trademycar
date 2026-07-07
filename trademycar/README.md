@@ -32,9 +32,11 @@ npm run build && npm start   # production
 
 Two kinds of login at `/admin/login`:
 
-- **Owner** — logs in with just the owner password (`ADMIN_PASSWORD` env
-  var, set once in your hosting settings). The owner sees a **Team** card
-  in the dashboard to add/remove staff logins — no technical setup.
+- **Owner** — logs in with admin@trademycar.co.nz. The owner password
+  works out of the box (see lib/auth.ts); setting an `ADMIN_PASSWORD`
+  environment variable overrides it, which is recommended once live since
+  the default is written in the source. The owner sees a **Team** card in
+  the dashboard to add/remove staff logins — no technical setup.
 - **Team members** — log in with their own email + password, created by
   the owner in the dashboard. They see everything except the Team card.
   Removing a member logs them out instantly.

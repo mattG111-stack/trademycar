@@ -8,7 +8,6 @@ const inputCls =
 const labelCls = "block mb-[6px] font-semibold text-[14.5px] text-[#2A3B4C]";
 
 export default function AdminLogin() {
-  const [mode, setMode] = useState<"team" | "owner">("team");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -22,10 +21,7 @@ export default function AdminLogin() {
       const res = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: mode === "owner" ? "" : email,
-          password,
-        }),
+        body: JSON.stringify({ email, password }),
       });
       if (res.ok) {
         window.location.href = "/admin";
@@ -48,28 +44,21 @@ export default function AdminLogin() {
         </div>
         <div className="bg-white border border-line rounded-[22px] p-[26px] [box-shadow:0_1px_2px_rgba(16,34,51,.05),0_24px_48px_-32px_rgba(16,34,51,.28)]">
           <h1 className="font-display font-extrabold text-[24px] text-ink-2 mt-0 mb-1 tracking-[-.01em]">
-            {mode === "owner" ? "Owner login" : "Team login"}
+            Staff login
           </h1>
           <p className="text-body-2 text-[14.5px] mt-0 mb-5">
-            {mode === "owner"
-              ? "Log in with the owner password."
-              : "Log in with your email and password."}
+            Log in with your email and password.
           </p>
-
-          {mode === "team" && (
-            <>
-              <label className={labelCls}>Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="username"
-                placeholder="you@trademycar.co.nz"
-                className={`${inputCls} mb-4`}
-              />
-            </>
-          )}
-
+          <label className={labelCls}>Email</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="username"
+            placeholder="you@trademycar.co.nz"
+            className={`${inputCls} mb-4`}
+            autoFocus
+          />
           <label className={labelCls}>Password</label>
           <input
             type="password"
@@ -80,31 +69,17 @@ export default function AdminLogin() {
             placeholder="••••••••"
             className={inputCls}
           />
-
           {error && (
             <div className="text-error text-[13.5px] font-semibold mt-[10px]">
               {error}
             </div>
           )}
-
           <button
             onClick={submit}
             disabled={busy}
             className="mt-4 w-full bg-accent text-white font-semibold text-[16px] p-[15px] rounded-full border-none cursor-pointer hover:brightness-[1.12] disabled:opacity-60"
           >
             {busy ? "Logging in…" : "Log in"}
-          </button>
-
-          <button
-            onClick={() => {
-              setMode(mode === "owner" ? "team" : "owner");
-              setError("");
-            }}
-            className="mt-3 w-full bg-transparent border-none text-body-2 font-semibold text-[14px] cursor-pointer"
-          >
-            {mode === "owner"
-              ? "Team member? Log in with your email →"
-              : "I'm the owner — log in with the owner password →"}
           </button>
         </div>
       </div>
