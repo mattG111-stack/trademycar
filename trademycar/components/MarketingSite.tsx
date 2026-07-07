@@ -327,6 +327,14 @@ export default function MarketingSite({ plate, onPlateChange, onStart }: Props) 
             the condition described; we may decline vehicles with undisclosed
             damage or faults.
           </p>
+          <p className="mt-[18px] mb-0">
+            <a
+              href="/admin"
+              className="text-[12px] text-muted no-underline opacity-60 hover:opacity-100 hover:text-accent"
+            >
+              Staff login
+            </a>
+          </p>
         </div>
       </footer>
     </div>

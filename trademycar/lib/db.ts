@@ -41,6 +41,20 @@ function getDb(): DatabaseSync {
       payload TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE,
+      pass_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS sessions (
+      token TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT,
+      is_owner INTEGER NOT NULL DEFAULT 0,
+      expires_at TEXT NOT NULL
+    );
   `);
   return db;
 }
@@ -245,4 +259,78 @@ export function getDashboardStats(sinceDays: number | null): DashboardStats {
     visitsByDay,
     leads,
   };
+}
+
+/* ── Team users + admin sessions ── */
+
+export type TeamUser = {
+  id: number;
+  name: string;
+  email: string;
+  passHash: string;
+  createdAt: string;
+};
+
+export function listUsers(): Omit<TeamUser, "passHash">[] {
+  return getDb()
+    .prepare(
+      "SELECT id, name, email, created_at AS createdAt FROM users ORDER BY created_at",
+    )
+    .all() as Omit<TeamUser, "passHash">[];
+}
+
+export function findUserByEmail(email: string): TeamUser | null {
+  const row = getDb()
+    .prepare(
+      "SELECT id, name, email, pass_hash AS passHash, created_at AS createdAt FROM users WHERE email = ?",
+    )
+    .get(email) as TeamUser | undefined;
+  return row ?? null;
+}
+
+export function addUser(name: string, email: string, passHash: string) {
+  getDb()
+    .prepare("INSERT INTO users (name, email, pass_hash) VALUES (?, ?, ?)")
+    .run(name, email, passHash);
+}
+
+export function removeUser(id: number) {
+  const d = getDb();
+  const user = d.prepare("SELECT email FROM users WHERE id = ?").get(id) as
+    | { email: string }
+    | undefined;
+  d.prepare("DELETE FROM users WHERE id = ?").run(id);
+  // Kill the removed member's active logins immediately.
+  if (user) d.prepare("DELETE FROM sessions WHERE email = ?").run(user.email);
+}
+
+export function insertSession(s: {
+  token: string;
+  name: string;
+  email: string | null;
+  isOwner: boolean;
+  expiresAt: string;
+}) {
+  const d = getDb();
+  d.prepare("DELETE FROM sessions WHERE expires_at < datetime('now')").run();
+  d.prepare(
+    "INSERT INTO sessions (token, name, email, is_owner, expires_at) VALUES (?, ?, ?, ?, ?)",
+  ).run(s.token, s.name, s.email, s.isOwner ? 1 : 0, s.expiresAt);
+}
+
+export function findSession(
+  token: string,
+): { name: string; email: string | null; isOwner: boolean } | null {
+  const row = getDb()
+    .prepare(
+      "SELECT name, email, is_owner AS isOwner FROM sessions WHERE token = ? AND expires_at > datetime('now')",
+    )
+    .get(token) as
+    | { name: string; email: string | null; isOwner: number }
+    | undefined;
+  return row ? { ...row, isOwner: Boolean(row.isOwner) } : null;
+}
+
+export function deleteSessionToken(token: string) {
+  getDb().prepare("DELETE FROM sessions WHERE token = ?").run(token);
 }

@@ -30,10 +30,18 @@ npm run build && npm start   # production
 
 ## Admin dashboard — `/admin`
 
-Login screen at `/admin/login` — password = `ADMIN_PASSWORD` from your
-environment variables. Sessions last a week; there's a Log out button in
-the dashboard header. (Open without a password in development; disabled
-in production until `ADMIN_PASSWORD` is set.)
+Two kinds of login at `/admin/login`:
+
+- **Owner** — logs in with just the owner password (`ADMIN_PASSWORD` env
+  var, set once in your hosting settings). The owner sees a **Team** card
+  in the dashboard to add/remove staff logins — no technical setup.
+- **Team members** — log in with their own email + password, created by
+  the owner in the dashboard. They see everything except the Team card.
+  Removing a member logs them out instantly.
+
+Sessions last 30 days per device; Log out button in the header. (Open
+without a password in development; disabled in production until
+`ADMIN_PASSWORD` is set.)
 
 Shows, for last 7 days / 30 days / all time:
 - **Visitors** (unique sessions), **leads submitted**, **conversion rate**

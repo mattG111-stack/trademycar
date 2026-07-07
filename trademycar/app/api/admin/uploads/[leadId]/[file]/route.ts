@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { getAdminSession } from "@/lib/auth";
 
 /**
  * GET /api/admin/uploads/<leadId>/<file>
  *
  * Serves a lead's uploaded photos / offer document to the admin dashboard.
- * Protected by the same Basic Auth as /admin (see proxy.ts matcher).
+ * Requires a logged-in owner or team member session.
  */
 
 const MIME: Record<string, string> = {
@@ -25,6 +26,10 @@ export async function GET(
   _req: NextRequest,
   ctx: { params: Promise<{ leadId: string; file: string }> },
 ) {
+  if (!(await getAdminSession())) {
+    return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  }
+
   const { leadId, file } = await ctx.params;
 
   // Path-traversal guard: only allow plain names we generated ourselves.

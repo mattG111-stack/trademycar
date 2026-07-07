@@ -1,35 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ADMIN_COOKIE, adminToken } from "@/lib/adminAuth";
+import { ADMIN_COOKIE, SESSION_DAYS, attemptLogin } from "@/lib/auth";
 
-/** POST /api/admin/login  { password } → sets the admin session cookie. */
+/**
+ * POST /api/admin/login  { email?, password }
+ * Owner: leave email blank, use the owner password (ADMIN_PASSWORD).
+ * Team member: email + the password the owner created for them.
+ */
 export async function POST(req: NextRequest) {
-  const password = process.env.ADMIN_PASSWORD;
-  if (!password) {
+  if (!process.env.ADMIN_PASSWORD) {
     return NextResponse.json(
-      { error: "ADMIN_PASSWORD is not configured on the server." },
+      { error: "The owner password (ADMIN_PASSWORD) isn't set up on the server yet." },
       { status: 503 },
     );
   }
 
-  let supplied = "";
+  let email = "";
+  let password = "";
   try {
-    supplied = String(((await req.json()) as { password?: string }).password ?? "");
+    const body = (await req.json()) as { email?: string; password?: string };
+    email = String(body.email ?? "").trim();
+    password = String(body.password ?? "");
   } catch {
     /* fall through */
   }
 
-  if (supplied !== password) {
-    // Small delay to blunt brute-force guessing.
-    await new Promise((r) => setTimeout(r, 800));
-    return NextResponse.json({ error: "Wrong password" }, { status: 401 });
+  const session = password ? attemptLogin(email, password) : null;
+  if (!session) {
+    await new Promise((r) => setTimeout(r, 800)); // blunt brute-force guessing
+    return NextResponse.json(
+      { error: email ? "Wrong email or password." : "Wrong owner password." },
+      { status: 401 },
+    );
   }
 
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set(ADMIN_COOKIE, await adminToken(password), {
+  const res = NextResponse.json({ ok: true, name: session.name });
+  res.cookies.set(ADMIN_COOKIE, session.token, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    maxAge: 60 * 60 * 24 * 7, // stay logged in for a week
+    maxAge: SESSION_DAYS * 86400,
     path: "/",
   });
   return res;

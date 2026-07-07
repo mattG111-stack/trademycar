@@ -22,7 +22,9 @@ and point your domain at it. About 30 minutes, ~US$5/month.
    photos live): right-click the service → **Attach Volume** →
    set the mount path to **/app/data**.
 4. Add your settings: open the service → **Variables** tab → add:
-   - `ADMIN_PASSWORD` → the password for your /admin dashboard
+   - `ADMIN_PASSWORD` → the OWNER password for your /admin dashboard
+     (you log in with just this; then add logins for your team from
+     the dashboard's Team section — no more setup needed)
    - later, when you have them: `INQUIRY_EMAIL`, `SMTP_HOST`,
      `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` (email), and
      `PLATE_LOOKUP_API_URL`, `PLATE_LOOKUP_API_KEY` (plate lookup)
