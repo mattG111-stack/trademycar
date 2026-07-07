@@ -1,16 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ADMIN_COOKIE, isValidAdminCookie } from "@/lib/adminAuth";
 
 /**
- * Protects /admin with HTTP Basic Auth.
+ * Protects /admin and /api/admin with a cookie session set by the
+ * login page at /admin/login (password = ADMIN_PASSWORD, set in your
+ * host's environment variables).
  *
- * Set ADMIN_PASSWORD in .env.local (username is "admin"). If it isn't
- * set, the dashboard is only reachable in development — production
- * requests get a 503 telling you to configure it.
+ * If ADMIN_PASSWORD isn't set: open in development, disabled in
+ * production.
  */
-export function proxy(req: NextRequest) {
-  const password = process.env.ADMIN_PASSWORD;
+export async function proxy(req: NextRequest) {
+  const { pathname } = req.nextUrl;
 
-  if (!password) {
+  // The login page and login/logout endpoints are always reachable.
+  if (
+    pathname === "/admin/login" ||
+    pathname === "/api/admin/login" ||
+    pathname === "/api/admin/logout"
+  ) {
+    return NextResponse.next();
+  }
+
+  if (!process.env.ADMIN_PASSWORD) {
     if (process.env.NODE_ENV === "development") return NextResponse.next();
     return new NextResponse(
       "Admin dashboard is disabled: set ADMIN_PASSWORD in your environment.",
@@ -18,20 +29,17 @@ export function proxy(req: NextRequest) {
     );
   }
 
-  const auth = req.headers.get("authorization");
-  if (auth?.startsWith("Basic ")) {
-    try {
-      const [user, pass] = atob(auth.slice(6)).split(":");
-      if (user === "admin" && pass === password) return NextResponse.next();
-    } catch {
-      /* fall through to 401 */
-    }
-  }
+  const ok = await isValidAdminCookie(req.cookies.get(ADMIN_COOKIE)?.value);
+  if (ok) return NextResponse.next();
 
-  return new NextResponse("Authentication required", {
-    status: 401,
-    headers: { "WWW-Authenticate": 'Basic realm="TradeMyCar admin"' },
-  });
+  // API requests get a 401; page requests go to the login screen.
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  }
+  const loginUrl = req.nextUrl.clone();
+  loginUrl.pathname = "/admin/login";
+  loginUrl.search = "";
+  return NextResponse.redirect(loginUrl);
 }
 
 export const config = {

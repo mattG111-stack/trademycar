@@ -30,8 +30,10 @@ npm run build && npm start   # production
 
 ## Admin dashboard — `/admin`
 
-Login: username `admin`, password = `ADMIN_PASSWORD` from your env
-(open without a password in development; disabled in production until set).
+Login screen at `/admin/login` — password = `ADMIN_PASSWORD` from your
+environment variables. Sessions last a week; there's a Log out button in
+the dashboard header. (Open without a password in development; disabled
+in production until `ADMIN_PASSWORD` is set.)
 
 Shows, for last 7 days / 30 days / all time:
 - **Visitors** (unique sessions), **leads submitted**, **conversion rate**

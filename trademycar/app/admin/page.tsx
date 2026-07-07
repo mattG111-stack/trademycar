@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/icons";
+import LogoutButton from "@/components/LogoutButton";
 import { getDashboardStats } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -28,8 +29,11 @@ export default async function AdminPage({
           <Link href="/" className="no-underline">
             <Logo size={36} />
           </Link>
-          <span className="text-[13px] font-bold tracking-[.1em] uppercase text-muted">
-            Admin — funnel
+          <span className="flex items-center gap-4">
+            <span className="text-[13px] font-bold tracking-[.1em] uppercase text-muted">
+              Admin — funnel
+            </span>
+            <LogoutButton />
           </span>
         </div>
       </header>
