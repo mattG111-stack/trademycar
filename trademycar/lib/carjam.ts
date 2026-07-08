@@ -1,4 +1,5 @@
 import type { Vehicle } from "@/lib/content";
+import { getSetting } from "@/lib/db";
 
 /**
  * CarJam ABCD integration helpers — see app/api/plate-lookup/route.ts
@@ -6,6 +7,17 @@ import type { Vehicle } from "@/lib/content";
  */
 
 const CARJAM_DEFAULT_URL = "https://www.carjam.co.nz/a/vehicle:abcd";
+
+/** The CarJam key: dashboard setting first, environment variable second. */
+export function getCarJamKey(): string {
+  try {
+    const fromDashboard = getSetting("carjam_api_key");
+    if (fromDashboard) return fromDashboard;
+  } catch {
+    /* fall through to env */
+  }
+  return process.env.PLATE_LOOKUP_API_KEY || "";
+}
 
 /** "TOYOTA COROLLA" → "Toyota Corolla" (CarJam data is often ALL CAPS). */
 function titleCase(s: string): string {
@@ -51,7 +63,7 @@ export function mapCarJam(raw: unknown): Vehicle | null {
 }
 
 export async function lookupFromCarJam(plate: string): Promise<Vehicle | null> {
-  const key = process.env.PLATE_LOOKUP_API_KEY;
+  const key = getCarJamKey();
   if (!key) return null; // Not configured yet → mock fallback.
   const base = process.env.PLATE_LOOKUP_API_URL || CARJAM_DEFAULT_URL;
   const url = `${base}?key=${encodeURIComponent(key)}&plate=${encodeURIComponent(plate)}`;

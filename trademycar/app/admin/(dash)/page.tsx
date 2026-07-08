@@ -2,8 +2,11 @@ import Link from "next/link";
 import { Logo } from "@/components/icons";
 import LogoutButton from "@/components/LogoutButton";
 import TeamManager from "@/components/TeamManager";
+import PlateApiSettings from "@/components/PlateApiSettings";
 import { getAdminSession } from "@/lib/auth";
-import { getDashboardStats, listUsers } from "@/lib/db";
+import { getCarJamKey } from "@/lib/carjam";
+import { signFile } from "@/lib/sign";
+import { getDashboardStats, getSetting, listUsers } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +69,188 @@ export default async function AdminPage({
               );
             })}
           </div>
+        </div>
+
+        {/* Leads — one line each: vehicle details, contacts, photos */}
+        <div className="bg-white border border-line rounded-[22px] p-7 mb-8">
+          <div className="flex flex-wrap items-baseline justify-between gap-2 mb-4">
+            <h2 className="font-display font-extrabold text-[20px] text-ink-2 m-0 tracking-[-.01em]">
+              Leads
+            </h2>
+            <span className="text-[13px] text-muted font-medium">
+              {stats.leads.length.toLocaleString()} total · newest first
+            </span>
+          </div>
+          {stats.leads.length === 0 ? (
+            <p className="text-body-2 text-[14.5px] m-0">
+              No leads yet — they&apos;ll show here (and land in your inbox) as
+              soon as someone completes the flow.
+            </p>
+          ) : (
+            <div className="overflow-x-auto -mx-2 px-2">
+              <table className="w-full border-collapse text-[13.5px] whitespace-nowrap">
+                <thead>
+                  <tr className="text-left text-[11.5px] uppercase tracking-[.08em] text-muted">
+                    <th className="pb-2 pr-4 font-bold">When (UTC)</th>
+                    <th className="pb-2 pr-4 font-bold">Plate</th>
+                    <th className="pb-2 pr-4 font-bold">Vehicle</th>
+                    <th className="pb-2 pr-4 font-bold">Contact</th>
+                    <th className="pb-2 pr-4 font-bold">Finance</th>
+                    <th className="pb-2 pr-4 font-bold">Their offer</th>
+                    <th className="pb-2 pr-4 font-bold">Photos & docs</th>
+                    <th className="pb-2 font-bold"></th>
+                  </tr>
+                </thead>
+                <tbody className="align-middle">
+                  {stats.leads.map((l) => {
+                    const v = l.vehicle;
+                    const vehTitle = v
+                      ? [v.year, v.make, v.model, v.spec]
+                          .filter(Boolean)
+                          .join(" ")
+                      : "—";
+                    const vehMeta = v
+                      ? [
+                          v.km ? `${Number(v.km).toLocaleString()} km` : null,
+                          v.fuel,
+                          v.drive,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")
+                      : "";
+                    const photos = l.files.filter(
+                      (f) => f.isImage && !f.isOfferDoc,
+                    );
+                    const docs = l.files.filter(
+                      (f) => f.isOfferDoc || !f.isImage,
+                    );
+                    return (
+                      <tr key={l.id} className="border-t border-hairline">
+                        <td className="py-3 pr-4 text-body-2">{l.createdAt}</td>
+                        <td className="py-3 pr-4">
+                          <Link
+                            href={`/admin/lead/${l.id}`}
+                            className="font-extrabold tracking-[.08em] text-accent no-underline hover:underline"
+                          >
+                            {l.plate || "(no plate)"}
+                          </Link>
+                        </td>
+                        <td className="py-3 pr-4">
+                          <span className="font-semibold text-ink-3">
+                            {vehTitle}
+                          </span>
+                          {vehMeta && (
+                            <span className="text-body-2"> · {vehMeta}</span>
+                          )}
+                        </td>
+                        <td className="py-3 pr-4">
+                          <span className="font-semibold text-ink-3">
+                            {l.name || "—"}
+                          </span>
+                          {l.phone && (
+                            <>
+                              {" · "}
+                              <a
+                                href={`tel:${l.phone}`}
+                                className="font-semibold text-accent no-underline"
+                              >
+                                {l.phone}
+                              </a>
+                            </>
+                          )}
+                          {l.email && (
+                            <>
+                              {" · "}
+                              <a
+                                href={`mailto:${l.email}`}
+                                className="text-accent no-underline"
+                              >
+                                {l.email}
+                              </a>
+                            </>
+                          )}
+                        </td>
+                        <td className="py-3 pr-4 text-body-2">
+                          {l.finance === "yes"
+                            ? "Owing"
+                            : l.finance === "no"
+                              ? "None"
+                              : l.finance === "unsure"
+                                ? "Not sure"
+                                : "—"}
+                        </td>
+                        <td className="py-3 pr-4">
+                          {l.offerAmount ? (
+                            <>
+                              <span className="font-semibold text-ink-3">
+                                {l.offerAmount.startsWith("$")
+                                  ? l.offerAmount
+                                  : `$${l.offerAmount}`}
+                              </span>
+                              {l.offerDealer && (
+                                <span className="text-body-2">
+                                  {" "}
+                                  — {l.offerDealer}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-body-2">—</span>
+                          )}
+                        </td>
+                        <td className="py-3 pr-4">
+                          <span className="inline-flex items-center gap-[6px]">
+                            {photos.map((f) => {
+                              const url = `/api/admin/uploads/${l.id}/${encodeURIComponent(f.name)}?t=${signFile(l.id, f.name)}`;
+                              return (
+                                <a
+                                  key={f.name}
+                                  href={url}
+                                  target="_blank"
+                                  title={f.name}
+                                  className="block w-12 h-9 rounded-[6px] overflow-hidden border border-line flex-none"
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={url}
+                                    alt={f.name}
+                                    loading="lazy"
+                                    className="w-full h-full object-cover"
+                                  />
+                                </a>
+                              );
+                            })}
+                            {docs.map((f) => (
+                              <a
+                                key={f.name}
+                                href={`/api/admin/uploads/${l.id}/${encodeURIComponent(f.name)}?t=${signFile(l.id, f.name)}`}
+                                target="_blank"
+                                title={f.name}
+                                className="inline-flex items-center h-9 px-2 rounded-[6px] border border-line bg-[#F6F8FA] text-[11.5px] font-bold text-ink-3 no-underline flex-none"
+                              >
+                                {f.isOfferDoc ? "OFFER DOC" : "FILE"}
+                              </a>
+                            ))}
+                            {photos.length === 0 && docs.length === 0 && (
+                              <span className="text-body-2">none</span>
+                            )}
+                          </span>
+                        </td>
+                        <td className="py-3 pl-4">
+                          <Link
+                            href={`/admin/lead/${l.id}`}
+                            className="text-[13px] font-bold text-accent no-underline hover:underline whitespace-nowrap"
+                          >
+                            View →
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Headline stats */}
@@ -199,170 +384,22 @@ export default async function AdminPage({
 
         {session?.isOwner && <TeamManager initialUsers={listUsers()} />}
 
-        {/* Leads — one line each: vehicle details, contacts, photos */}
-        <div className="bg-white border border-line rounded-[22px] p-7">
-          <div className="flex flex-wrap items-baseline justify-between gap-2 mb-4">
-            <h2 className="font-display font-extrabold text-[20px] text-ink-2 m-0 tracking-[-.01em]">
-              Leads
-            </h2>
-            <span className="text-[13px] text-muted font-medium">
-              {stats.leads.length.toLocaleString()} total · newest first
-            </span>
-          </div>
-          {stats.leads.length === 0 ? (
-            <p className="text-body-2 text-[14.5px] m-0">
-              No leads yet — they&apos;ll show here (and land in your inbox) as
-              soon as someone completes the flow.
-            </p>
-          ) : (
-            <div className="overflow-x-auto -mx-2 px-2">
-              <table className="w-full border-collapse text-[13.5px] whitespace-nowrap">
-                <thead>
-                  <tr className="text-left text-[11.5px] uppercase tracking-[.08em] text-muted">
-                    <th className="pb-2 pr-4 font-bold">When (UTC)</th>
-                    <th className="pb-2 pr-4 font-bold">Plate</th>
-                    <th className="pb-2 pr-4 font-bold">Vehicle</th>
-                    <th className="pb-2 pr-4 font-bold">Contact</th>
-                    <th className="pb-2 pr-4 font-bold">Finance</th>
-                    <th className="pb-2 pr-4 font-bold">Their offer</th>
-                    <th className="pb-2 font-bold">Photos & docs</th>
-                  </tr>
-                </thead>
-                <tbody className="align-middle">
-                  {stats.leads.map((l) => {
-                    const v = l.vehicle;
-                    const vehTitle = v
-                      ? [v.year, v.make, v.model, v.spec]
-                          .filter(Boolean)
-                          .join(" ")
-                      : "—";
-                    const vehMeta = v
-                      ? [
-                          v.km ? `${Number(v.km).toLocaleString()} km` : null,
-                          v.fuel,
-                          v.drive,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")
-                      : "";
-                    const photos = l.files.filter(
-                      (f) => f.isImage && !f.isOfferDoc,
-                    );
-                    const docs = l.files.filter(
-                      (f) => f.isOfferDoc || !f.isImage,
-                    );
-                    return (
-                      <tr key={l.id} className="border-t border-hairline">
-                        <td className="py-3 pr-4 text-body-2">{l.createdAt}</td>
-                        <td className="py-3 pr-4 font-extrabold tracking-[.08em] text-ink-3">
-                          {l.plate || "—"}
-                        </td>
-                        <td className="py-3 pr-4">
-                          <span className="font-semibold text-ink-3">
-                            {vehTitle}
-                          </span>
-                          {vehMeta && (
-                            <span className="text-body-2"> · {vehMeta}</span>
-                          )}
-                        </td>
-                        <td className="py-3 pr-4">
-                          <span className="font-semibold text-ink-3">
-                            {l.name || "—"}
-                          </span>
-                          {l.phone && (
-                            <>
-                              {" · "}
-                              <a
-                                href={`tel:${l.phone}`}
-                                className="font-semibold text-accent no-underline"
-                              >
-                                {l.phone}
-                              </a>
-                            </>
-                          )}
-                          {l.email && (
-                            <>
-                              {" · "}
-                              <a
-                                href={`mailto:${l.email}`}
-                                className="text-accent no-underline"
-                              >
-                                {l.email}
-                              </a>
-                            </>
-                          )}
-                        </td>
-                        <td className="py-3 pr-4 text-body-2">
-                          {l.finance === "yes"
-                            ? "Owing"
-                            : l.finance === "no"
-                              ? "None"
-                              : l.finance === "unsure"
-                                ? "Not sure"
-                                : "—"}
-                        </td>
-                        <td className="py-3 pr-4">
-                          {l.offerAmount ? (
-                            <>
-                              <span className="font-semibold text-ink-3">
-                                {l.offerAmount.startsWith("$")
-                                  ? l.offerAmount
-                                  : `$${l.offerAmount}`}
-                              </span>
-                              {l.offerDealer && (
-                                <span className="text-body-2">
-                                  {" "}
-                                  — {l.offerDealer}
-                                </span>
-                              )}
-                            </>
-                          ) : (
-                            <span className="text-body-2">—</span>
-                          )}
-                        </td>
-                        <td className="py-3">
-                          <span className="inline-flex items-center gap-[6px]">
-                            {photos.map((f) => (
-                              <a
-                                key={f.name}
-                                href={`/api/admin/uploads/${l.id}/${encodeURIComponent(f.name)}`}
-                                target="_blank"
-                                title={f.name}
-                                className="block w-12 h-9 rounded-[6px] overflow-hidden border border-line flex-none"
-                              >
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={`/api/admin/uploads/${l.id}/${encodeURIComponent(f.name)}`}
-                                  alt={f.name}
-                                  loading="lazy"
-                                  className="w-full h-full object-cover"
-                                />
-                              </a>
-                            ))}
-                            {docs.map((f) => (
-                              <a
-                                key={f.name}
-                                href={`/api/admin/uploads/${l.id}/${encodeURIComponent(f.name)}`}
-                                target="_blank"
-                                title={f.name}
-                                className="inline-flex items-center h-9 px-2 rounded-[6px] border border-line bg-[#F6F8FA] text-[11.5px] font-bold text-ink-3 no-underline flex-none"
-                              >
-                                {f.isOfferDoc ? "OFFER DOC" : "FILE"}
-                              </a>
-                            ))}
-                            {photos.length === 0 && docs.length === 0 && (
-                              <span className="text-body-2">none</span>
-                            )}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        {session?.isOwner && (
+          <PlateApiSettings
+            initialMaskedKey={(() => {
+              const k = getCarJamKey();
+              return k ? `••••••••${k.slice(-4)}` : null;
+            })()}
+            initialSource={
+              getSetting("carjam_api_key")
+                ? "dashboard"
+                : process.env.PLATE_LOOKUP_API_KEY
+                  ? "environment"
+                  : null
+            }
+          />
+        )}
+
       </main>
     </div>
   );

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { Vehicle } from "@/lib/content";
-import { lookupFromCarJam } from "@/lib/carjam";
+import { getCarJamKey, lookupFromCarJam } from "@/lib/carjam";
 
 /**
  * GET /api/plate-lookup?plate=ABC123
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Invalid plate" }, { status: 400 });
   }
 
-  const hasKey = Boolean(process.env.PLATE_LOOKUP_API_KEY);
+  const hasKey = Boolean(getCarJamKey());
 
   try {
     if (hasKey) {

@@ -148,6 +148,49 @@ export type DashboardStats = {
 
 const IMAGE_EXT = /\.(jpe?g|png|gif|webp|heic|heif|avif)$/i;
 
+type RawLeadRow = {
+  id: string;
+  plate: string;
+  name: string;
+  phone: string;
+  email: string;
+  payload: string;
+  createdAt: string;
+};
+
+function mapLeadRow(l: RawLeadRow): LeadRow {
+  let p: Record<string, unknown> = {};
+  try {
+    p = JSON.parse(l.payload);
+  } catch {
+    /* keep empty */
+  }
+  return {
+    id: l.id,
+    plate: l.plate,
+    name: l.name,
+    phone: l.phone,
+    email: l.email,
+    createdAt: l.createdAt,
+    vehicle: (p.vehicle as LeadRow["vehicle"]) ?? null,
+    finance: String(p.finance ?? ""),
+    offerAmount: String(p.offerAmount ?? ""),
+    offerDealer: String(p.offerDealer ?? ""),
+    files: listLeadFiles(l.id),
+  };
+}
+
+/** One lead with everything, for the lead detail page. */
+export function getLead(id: string): LeadRow | null {
+  const row = getDb()
+    .prepare(
+      `SELECT id, plate, name, phone, email, payload, created_at AS createdAt
+       FROM leads WHERE id = ?`,
+    )
+    .get(id) as RawLeadRow | undefined;
+  return row ? mapLeadRow(row) : null;
+}
+
 function listLeadFiles(leadId: string): LeadRow["files"] {
   try {
     return fs
@@ -223,27 +266,7 @@ export function getDashboardStats(sinceDays: number | null): DashboardStats {
     createdAt: string;
   }[];
 
-  const leads: LeadRow[] = leadRows.map((l) => {
-    let p: Record<string, unknown> = {};
-    try {
-      p = JSON.parse(l.payload);
-    } catch {
-      /* keep empty */
-    }
-    return {
-      id: l.id,
-      plate: l.plate,
-      name: l.name,
-      phone: l.phone,
-      email: l.email,
-      createdAt: l.createdAt,
-      vehicle: (p.vehicle as LeadRow["vehicle"]) ?? null,
-      finance: String(p.finance ?? ""),
-      offerAmount: String(p.offerAmount ?? ""),
-      offerDealer: String(p.offerDealer ?? ""),
-      files: listLeadFiles(l.id),
-    };
-  });
+  const leads: LeadRow[] = leadRows.map(mapLeadRow);
 
   const totalVisits = base;
   const totalLeads = counts[counts.length - 1];
@@ -333,4 +356,31 @@ export function findSession(
 
 export function deleteSessionToken(token: string) {
   getDb().prepare("DELETE FROM sessions WHERE token = ?").run(token);
+}
+
+/* ── Site settings (editable from the dashboard) ── */
+
+export function getSetting(key: string): string | null {
+  const d = getDb();
+  d.exec(
+    "CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
+  );
+  const row = d.prepare("SELECT value FROM settings WHERE key = ?").get(key) as
+    | { value: string }
+    | undefined;
+  return row?.value ?? null;
+}
+
+export function setSetting(key: string, value: string) {
+  const d = getDb();
+  d.exec(
+    "CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
+  );
+  if (value === "") {
+    d.prepare("DELETE FROM settings WHERE key = ?").run(key);
+  } else {
+    d.prepare(
+      "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    ).run(key, value);
+  }
 }

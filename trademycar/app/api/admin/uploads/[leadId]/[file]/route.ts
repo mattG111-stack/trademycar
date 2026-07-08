@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { getAdminSession } from "@/lib/auth";
+import { signFile } from "@/lib/sign";
 
 /**
  * GET /api/admin/uploads/<leadId>/<file>
  *
  * Serves a lead's uploaded photos / offer document to the admin dashboard.
- * Requires a logged-in owner or team member session.
+ * Requires a logged-in session OR a valid per-file signature (?t=...),
+ * which the dashboard stamps onto every photo link it renders.
  */
 
 const MIME: Record<string, string> = {
@@ -23,14 +25,16 @@ const MIME: Record<string, string> = {
 };
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   ctx: { params: Promise<{ leadId: string; file: string }> },
 ) {
-  if (!(await getAdminSession())) {
+  const { leadId, file } = await ctx.params;
+
+  const sig = req.nextUrl.searchParams.get("t") ?? "";
+  const signedOk = sig !== "" && sig === signFile(leadId, file);
+  if (!signedOk && !(await getAdminSession())) {
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   }
-
-  const { leadId, file } = await ctx.params;
 
   // Path-traversal guard: only allow plain names we generated ourselves.
   if (!/^[\w.-]+$/.test(leadId) || !/^[\w.\- ()]+$/.test(file)) {
